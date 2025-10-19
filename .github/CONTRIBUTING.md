@@ -200,7 +200,6 @@ mnesia_ex/
 │       └── utils.ex            # Utility functions
 ├── test/
 │   └── mnesia_ex/              # Tests mirror lib structure
-├── .cursor/                    # Functional programming rules
 ├── README.md
 ├── CHANGELOG.md
 └── mix.exs
