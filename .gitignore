@@ -1,0 +1,61 @@
+# Elixir build artifacts
+/_build/
+/deps/
+*.ez
+
+# Generate on crash by the VM
+erl_crash.dump
+
+# Since we are building assets from assets/,
+# we ignore priv/static. You may want to comment
+# this depending on your deployment strategy.
+/priv/static/
+
+# Files matching config/*.secret.exs pattern contain sensitive
+# data and you should not commit them into version control.
+config/*.secret.exs
+
+# Mnesia database files
+Mnesia.*/
+mnesia/
+
+# Backup and export files
+priv/backups/
+priv/exports/
+
+# Documentation
+/doc/
+/.elixir_ls/
+
+# Hex
+*.tar
+
+# Temporary files
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Test coverage
+/cover/
+*.coverdata
+
+# Editor configs
+.idea/
+.vscode/
+.cursor/
+*.iml
+
+# Dialyzer
+/priv/plts/
+dialyzer.plt
+dialyzer.local.plt
+
+# Credo
+.credo_cache/
+
+# Local environment
+.env
+.env.local
+mix.lock
+
