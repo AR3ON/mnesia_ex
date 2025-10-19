@@ -53,9 +53,17 @@ Add to your `mix.exs`:
 ```elixir
 def deps do
   [
-    {:mnesia_ex, "~> 1.0"}
+    {:mnesia_ex, "~> 0.1"}
   ]
 end
+```
+
+⚠️ **Beta Release**: This is a beta release (v0.1.x). The API may change before v1.0.0.
+
+For production use, consider pinning to a specific minor version:
+
+```elixir
+{:mnesia_ex, "~> 0.1.0"}  # Only allows 0.1.x patches
 ```
 
 ## Examples
