@@ -1,7 +1,7 @@
 defmodule MnesiaEx.MixProject do
   use Mix.Project
 
-  @version "0.1.0"
+  @version "0.2.0"
   @source_url "https://github.com/AR3ON/mnesia_ex"
 
   def project do
@@ -48,7 +48,7 @@ defmodule MnesiaEx.MixProject do
   defp package do
     [
       name: :mnesia_ex,
-      files: ~w(lib .formatter.exs mix.exs README* LICENSE* CHANGELOG*),
+      files: ~w(lib examples .formatter.exs mix.exs README* LICENSE* CHANGELOG*),
       licenses: ["MIT"],
       links: %{
         "GitHub" => @source_url,
@@ -76,6 +76,7 @@ defmodule MnesiaEx.MixProject do
       main: "MnesiaEx",
       source_url: @source_url,
       source_ref: "v#{@version}",
+      source_url_pattern: "#{@source_url}/blob/v#{@version}/%{path}#L%{line}",
       formatters: ["html"],
       extras: [
         "README.md",

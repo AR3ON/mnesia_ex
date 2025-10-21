@@ -116,7 +116,7 @@ IO.puts("Creating user and related data in one transaction...")
   {:ok, _user2} = MyApp.Users.write(%{id: 11, name: "Also", email: "also@example.com", age: 41})
   {:ok, _user3} = MyApp.Users.write(%{id: 12, name: "InSame", email: "insame@example.com", age: 42})
 
-  {:ok, keys} = MyApp.Users.all_keys()
+  keys = MyApp.Users.all_keys()  # all_keys returns list directly, not {:ok, list}
   {user, keys}
 end)
 

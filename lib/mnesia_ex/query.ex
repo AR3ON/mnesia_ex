@@ -137,33 +137,141 @@ defmodule MnesiaEx.Query do
     |> Error.return()
   end
 
+  defp is_counter_field_in_schema(table, field) do
+    get_counter_fields_from_schema(table)
+    |> check_field_in_list(field)
+  end
+
+  defp get_counter_fields_from_schema(table) do
+    :mnesia.table_info(table, :user_properties)
+    |> extract_counter_fields_from_properties()
+  end
+
+  defp extract_counter_fields_from_properties(properties) when is_list(properties) do
+    extract_autoincrement_fields(properties, [])
+  end
+
+  defp extract_counter_fields_from_properties(_), do: []
+
+  defp extract_autoincrement_fields([], acc), do: Enum.reverse(acc)
+
+  defp extract_autoincrement_fields([{:field_type, field, :autoincrement} | rest], acc) do
+    extract_autoincrement_fields(rest, [field | acc])
+  end
+
+  defp extract_autoincrement_fields([_other | rest], acc) do
+    extract_autoincrement_fields(rest, acc)
+  end
+
+  defp check_field_in_list(fields, field) when is_list(fields) do
+    check_field_membership(fields, field)
+  end
+
+  defp check_field_in_list(_fields, _field), do: false
+
+  defp check_field_membership([], _field), do: false
+
+  defp check_field_membership([field | _rest], field), do: true
+
+  defp check_field_membership([_other | rest], field) do
+    check_field_membership(rest, field)
+  end
+
   # Pure functions - ID generation
 
   defp safe_generate_ids(table, record, fields) do
-    fields
-    |> Enum.reduce(record, fn field, acc ->
-      Map.get(acc, field)
-      |> generate_id_if_nil(table, field, acc)
-    end)
-    |> Error.return()
+    generate_ids_recursive(table, record, fields, [])
   end
 
-  defp generate_id_if_nil(nil, table, field, acc) do
+  defp generate_ids_recursive(_table, record, [], _processed_fields) do
+    Error.return(record)
+  end
+
+  defp generate_ids_recursive(table, record, [field | rest], processed_fields) do
+    Error.m do
+      updated_record <- process_field_id(table, record, field)
+      generate_ids_recursive(table, updated_record, rest, [field | processed_fields])
+    end
+  end
+
+  defp process_field_id(table, record, field) do
+    Map.get(record, field)
+    |> handle_id_field(table, field, record)
+  end
+
+  defp handle_id_field(nil, table, field, acc) do
     Counter.has_counter?(table, field)
     |> generate_id_if_has_counter(table, field, acc)
   end
 
-  defp generate_id_if_nil(_value, _table, _field, acc), do: acc
+  defp handle_id_field(manual_id, table, field, acc) when is_integer(manual_id) do
+    is_counter_field_in_schema(table, field)
+    |> validate_and_adjust_counter(table, field, manual_id, acc)
+  end
+
+  defp handle_id_field(_value, _table, _field, acc), do: Error.return(acc)
 
   defp generate_id_if_has_counter(true, table, field, acc) do
     Counter.get_next_id_in_transaction(table, field)
-    |> handle_counter_id_result(field, acc)
+    |> transform_counter_id_result(field, acc)
   end
 
-  defp generate_id_if_has_counter(false, _table, _field, acc), do: acc
+  defp generate_id_if_has_counter(false, _table, _field, acc), do: Error.return(acc)
 
-  defp handle_counter_id_result({:ok, id}, field, acc), do: Map.put(acc, field, id)
-  defp handle_counter_id_result({:error, _reason}, _field, acc), do: acc
+  defp transform_counter_id_result({:ok, id}, field, acc) do
+    Error.return(Map.put(acc, field, id))
+  end
+
+  defp transform_counter_id_result({:error, reason}, _field, _acc) do
+    Error.fail(reason)
+  end
+
+  defp validate_and_adjust_counter(true, table, field, manual_id, acc) do
+    validate_manual_id_not_exists(table, manual_id, field, acc)
+  end
+
+  defp validate_and_adjust_counter(false, _table, _field, _manual_id, acc) do
+    Error.return(acc)
+  end
+
+  defp validate_manual_id_not_exists(table, manual_id, field, acc) do
+    read(table, manual_id)
+    |> handle_existence_check_for_manual_id(table, field, manual_id, acc)
+  end
+
+  defp handle_existence_check_for_manual_id({:error, :not_found}, table, field, manual_id, acc) do
+    adjust_counter_if_needed(table, field, manual_id, acc)
+  end
+
+  defp handle_existence_check_for_manual_id({:ok, _existing_record}, _table, field, manual_id, _acc) do
+    Error.fail({:id_already_exists, field, manual_id})
+  end
+
+  defp handle_existence_check_for_manual_id({:error, reason}, _table, _field, _manual_id, _acc) do
+    Error.fail(reason)
+  end
+
+  defp adjust_counter_if_needed(table, field, manual_id, acc) do
+    Counter.get_current_value(table, field)
+    |> update_counter_if_manual_id_higher(table, field, manual_id, acc)
+  end
+
+  defp update_counter_if_manual_id_higher({:ok, current_value}, table, field, manual_id, acc)
+       when manual_id > current_value do
+    Counter.reset_counter(table, field, manual_id + 1)
+    |> transform_counter_reset_result(acc)
+  end
+
+  defp update_counter_if_manual_id_higher({:ok, _current_value}, _table, _field, _manual_id, acc) do
+    Error.return(acc)
+  end
+
+  defp update_counter_if_manual_id_higher({:error, reason}, _table, _field, _manual_id, _acc) do
+    Error.fail(reason)
+  end
+
+  defp transform_counter_reset_result({:ok, _value}, acc), do: Error.return(acc)
+  defp transform_counter_reset_result({:error, reason}, _acc), do: Error.fail(reason)
 
   # Pure functions - Unique field validation
 

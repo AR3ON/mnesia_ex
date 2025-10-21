@@ -415,7 +415,7 @@ defmodule MnesiaEx.CounterTest do
       auto_post = Query.write!(:posts, %{user_id: 1, title: "Auto ID", content: "Content"})
 
       validate_manual_id(manual_post, 100)
-      validate_auto_generated_id(auto_post, :id, 1)
+      validate_auto_generated_id(auto_post, :id, 101)  # Contador ajustado a 101
     end
 
     test "counter continues after manual ID" do
@@ -424,8 +424,8 @@ defmodule MnesiaEx.CounterTest do
       post1 = Query.write!(:posts, %{user_id: 1, title: "Auto 1", content: "Content"})
       post2 = Query.write!(:posts, %{user_id: 1, title: "Auto 2", content: "Content"})
 
-      validate_auto_generated_id(post1, :id, 1)
-      validate_auto_generated_id(post2, :id, 2)
+      validate_auto_generated_id(post1, :id, 51)  # Contador ajustado a 51
+      validate_auto_generated_id(post2, :id, 52)  # Continúa desde 51
     end
 
     test "reset counter affects auto-generation" do
@@ -677,6 +677,240 @@ defmodule MnesiaEx.CounterTest do
       # @spec has_counter?(atom(), atom()) :: boolean()
       validate_is_boolean(result)
     end
+  end
+
+  describe "Auto-adjust counter on manual ID write" do
+    setup do
+      Table.create(:test_auto_adjust, [
+        attributes: [:id, :name],
+        counter_fields: [:id]
+      ])
+
+      on_exit(fn ->
+        Table.drop(:test_auto_adjust)
+      end)
+
+      :ok
+    end
+
+    test "counter auto-adjusts when manual ID is higher than current counter" do
+      # First auto-generated ID
+      {:ok, record1} = Query.write(:test_auto_adjust, %{name: "Alice"})
+      validate_id_value(record1.id, 1)
+
+      # Second auto-generated ID
+      {:ok, record2} = Query.write(:test_auto_adjust, %{name: "Bob"})
+      validate_id_value(record2.id, 2)
+
+      # Write with manual ID higher than counter (counter = 2, manual = 100)
+      {:ok, record3} = Query.write(:test_auto_adjust, %{id: 100, name: "Charlie"})
+      validate_id_value(record3.id, 100)
+
+      # Next auto-generated should be 101 (counter adjusted to 101)
+      {:ok, record4} = Query.write(:test_auto_adjust, %{name: "Diana"})
+      validate_id_value(record4.id, 101)
+
+      # Continue sequence
+      {:ok, record5} = Query.write(:test_auto_adjust, %{name: "Eve"})
+      validate_id_value(record5.id, 102)
+    end
+
+    test "prevents duplicate IDs and validates counter behavior" do
+      # Generate first 3 IDs
+      {:ok, _} = Query.write(:test_auto_adjust, %{name: "Alice"})
+      {:ok, _} = Query.write(:test_auto_adjust, %{name: "Bob"})
+      {:ok, _} = Query.write(:test_auto_adjust, %{name: "Charlie"})
+
+      # Current counter = 3
+      # Try to write with manual ID that already exists (2) → Error
+      result = Query.write(:test_auto_adjust, %{id: 2, name: "Diana"})
+      validate_duplicate_error(result, :id, 2)
+
+      # Next auto-generated continues normally from 3
+      {:ok, record4} = Query.write(:test_auto_adjust, %{name: "Diana"})
+      validate_id_value(record4.id, 4)
+
+      # Write with manual ID higher than counter (10 > 4) → Adjusts
+      {:ok, record5} = Query.write(:test_auto_adjust, %{id: 10, name: "Eve"})
+      validate_id_value(record5.id, 10)
+
+      # Next auto-generated uses adjusted counter (11)
+      {:ok, record6} = Query.write(:test_auto_adjust, %{name: "Frank"})
+      validate_id_value(record6.id, 11)
+    end
+
+    test "handles multiple manual IDs with increasing values" do
+      # Manual ID 50
+      {:ok, record1} = Query.write(:test_auto_adjust, %{id: 50, name: "User50"})
+      validate_id_value(record1.id, 50)
+
+      # Auto-generated should be 51
+      {:ok, record2} = Query.write(:test_auto_adjust, %{name: "User51"})
+      validate_id_value(record2.id, 51)
+
+      # Manual ID 100
+      {:ok, record3} = Query.write(:test_auto_adjust, %{id: 100, name: "User100"})
+      validate_id_value(record3.id, 100)
+
+      # Auto-generated should be 101
+      {:ok, record4} = Query.write(:test_auto_adjust, %{name: "User101"})
+      validate_id_value(record4.id, 101)
+    end
+
+    test "prevents collisions between manual and auto-generated IDs" do
+      # Generate IDs 1, 2, 3
+      records = write_records_range(1, 3, "User", [])
+      validate_id_sequence(records, [1, 2, 3])
+
+      # Write manual ID 100
+      {:ok, record_100} = Query.write(:test_auto_adjust, %{id: 100, name: "User100"})
+      validate_id_value(record_100.id, 100)
+
+      # Next 10 auto-generated should be 101-110 (no collision with 100)
+      next_records = write_records_range(101, 110, "User", [])
+      validate_id_sequence(next_records, Enum.to_list(101..110))
+    end
+
+    test "works with batch_write operations" do
+      # Auto-generated IDs in batch
+      records = Query.batch_write(:test_auto_adjust, [
+        %{name: "Alice"},
+        %{name: "Bob"},
+        %{name: "Charlie"}
+      ])
+
+      validate_id_sequence(records, [1, 2, 3])
+
+      # Write manual ID 50
+      {:ok, _} = Query.write(:test_auto_adjust, %{id: 50, name: "Manual50"})
+
+      # Next batch should start from 51
+      next_records = Query.batch_write(:test_auto_adjust, [
+        %{name: "Diana"},
+        %{name: "Eve"}
+      ])
+
+      validate_id_sequence(next_records, [51, 52])
+    end
+
+    test "prevents writing with duplicate manual ID" do
+      # Create first record with ID 10
+      {:ok, record1} = Query.write(:test_auto_adjust, %{id: 10, name: "Original"})
+      validate_id_value(record1.id, 10)
+
+      # Try to create another record with same ID 10
+      result = Query.write(:test_auto_adjust, %{id: 10, name: "Duplicate"})
+      validate_duplicate_error(result, :id, 10)
+    end
+
+    test "prevents updating via write with same manual ID" do
+      # Create record with ID 10
+      {:ok, record1} = Query.write(:test_auto_adjust, %{id: 10, name: "Original"})
+      validate_id_value(record1.id, 10)
+
+      # Try to write with same ID → Error (use update instead)
+      result = Query.write(:test_auto_adjust, %{id: 10, name: "Updated"})
+      validate_duplicate_error(result, :id, 10)
+
+      # Original record remains unchanged
+      {:ok, fetched} = Query.read(:test_auto_adjust, 10)
+      validate_name_value(fetched.name, "Original")
+    end
+
+    test "prevents collision after auto-generated IDs" do
+      # Auto-generate IDs 1, 2, 3
+      {:ok, _} = Query.write(:test_auto_adjust, %{name: "User1"})
+      {:ok, _} = Query.write(:test_auto_adjust, %{name: "User2"})
+      {:ok, _} = Query.write(:test_auto_adjust, %{name: "User3"})
+
+      # Try to insert with existing ID 2
+      result = Query.write(:test_auto_adjust, %{id: 2, name: "Duplicate"})
+      validate_duplicate_error(result, :id, 2)
+
+      # Next auto-generated should still work
+      {:ok, record4} = Query.write(:test_auto_adjust, %{name: "User4"})
+      validate_id_value(record4.id, 4)
+    end
+
+    test "allows manual ID that doesn't exist yet" do
+      # Create with manual ID 50 (doesn't exist)
+      {:ok, record1} = Query.write(:test_auto_adjust, %{id: 50, name: "User50"})
+      validate_id_value(record1.id, 50)
+
+      # Create with manual ID 100 (doesn't exist)
+      {:ok, record2} = Query.write(:test_auto_adjust, %{id: 100, name: "User100"})
+      validate_id_value(record2.id, 100)
+
+      # Auto-generated should be 101
+      {:ok, record3} = Query.write(:test_auto_adjust, %{name: "UserAuto"})
+      validate_id_value(record3.id, 101)
+    end
+
+    test "prevents duplicates in batch operations scenario" do
+      # Create records 1-3
+      records = Query.batch_write(:test_auto_adjust, [
+        %{name: "User1"},
+        %{name: "User2"},
+        %{name: "User3"}
+      ])
+      validate_id_sequence(records, [1, 2, 3])
+
+      # Try to insert duplicate ID 2
+      result = Query.write(:test_auto_adjust, %{id: 2, name: "Duplicate"})
+      validate_duplicate_error(result, :id, 2)
+    end
+  end
+
+  # Helper functions for auto-adjust counter tests
+  defp validate_id_value(actual_id, expected_id) when actual_id == expected_id, do: :ok
+
+  defp validate_id_value(actual_id, expected_id) do
+    raise "Expected ID #{expected_id} but got #{actual_id}"
+  end
+
+  defp validate_name_value(actual_name, expected_name) when actual_name == expected_name, do: :ok
+
+  defp validate_name_value(actual_name, expected_name) do
+    raise "Expected name #{expected_name} but got #{actual_name}"
+  end
+
+  defp validate_duplicate_error({:error, {:id_already_exists, field, id}}, expected_field, expected_id)
+       when field == expected_field and id == expected_id do
+    :ok
+  end
+
+  defp validate_duplicate_error({:error, reason}, expected_field, expected_id) do
+    raise "Expected duplicate error {:id_already_exists, #{expected_field}, #{expected_id}} but got #{inspect(reason)}"
+  end
+
+  defp validate_duplicate_error({:ok, record}, expected_field, expected_id) do
+    raise "Expected duplicate error {:id_already_exists, #{expected_field}, #{expected_id}} but operation succeeded with #{inspect(record)}"
+  end
+
+  defp validate_id_sequence(records, expected_ids) do
+    actual_ids = extract_ids_from_records(records, [])
+    validate_id_list_match(actual_ids, expected_ids)
+  end
+
+  defp extract_ids_from_records([], acc), do: Enum.reverse(acc)
+
+  defp extract_ids_from_records([record | rest], acc) do
+    extract_ids_from_records(rest, [record.id | acc])
+  end
+
+  defp validate_id_list_match(actual, expected) when actual == expected, do: :ok
+
+  defp validate_id_list_match(actual, expected) do
+    raise "Expected IDs #{inspect(expected)} but got #{inspect(actual)}"
+  end
+
+  defp write_records_range(start, finish, _prefix, acc) when start > finish do
+    Enum.reverse(acc)
+  end
+
+  defp write_records_range(start, finish, prefix, acc) do
+    {:ok, record} = Query.write(:test_auto_adjust, %{name: "#{prefix}#{start}"})
+    write_records_range(start + 1, finish, prefix, [record | acc])
   end
 
   # Helper functions for spec validation

@@ -122,7 +122,7 @@ IO.puts("\n=== Atomic Update of Multiple Records ===\n")
 # Update multiple records atomically
 IO.puts("Updating all Bob's posts to mark as published...")
 {:ok, updated_posts} = MnesiaEx.transaction(fn ->
-  {:ok, bob_posts} = MyApp.Posts.select([{:user_id, :==, user.id}])
+  bob_posts = MyApp.Posts.select([{:user_id, :==, user.id}])  # select returns list directly
 
   Enum.map(bob_posts, fn post ->
     {:ok, updated} = MyApp.Posts.update(post.id, %{title: "[Published] #{post.title}"})
@@ -155,7 +155,7 @@ case result do
     IO.puts("Transaction rolled back as expected!")
 
     # Verify the temp user and post were NOT created
-    {:ok, temp_users} = MyApp.Users.select([{:name, :==, "Temp"}])
+    temp_users = MyApp.Users.select([{:name, :==, "Temp"}])  # select returns list directly
 
     temp_users
     |> length()

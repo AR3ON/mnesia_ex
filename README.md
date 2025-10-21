@@ -68,15 +68,15 @@ For production use, consider pinning to a specific minor version:
 
 ## Examples
 
-Check out the [`examples/`](https://github.com/AR3ON/mnesia_ex/tree/main/examples) directory for complete, runnable examples:
+Check out the `examples/` directory for complete, runnable examples:
 
-- **[01_basic_crud.exs](https://github.com/AR3ON/mnesia_ex/blob/main/examples/01_basic_crud.exs)** - Write, read, update, delete, queries
-- **[02_ttl.exs](https://github.com/AR3ON/mnesia_ex/blob/main/examples/02_ttl.exs)** - Automatic record expiration
-- **[03_counters.exs](https://github.com/AR3ON/mnesia_ex/blob/main/examples/03_counters.exs)** - Auto-increment IDs and distributed counters
-- **[04_events.exs](https://github.com/AR3ON/mnesia_ex/blob/main/examples/04_events.exs)** - Real-time event subscriptions
-- **[05_backup_export.exs](https://github.com/AR3ON/mnesia_ex/blob/main/examples/05_backup_export.exs)** - Backup to JSON/CSV/Erlang
-- **[06_complete_app.exs](https://github.com/AR3ON/mnesia_ex/blob/main/examples/06_complete_app.exs)** - Full blog system demo
-- **[07_transactions.exs](https://github.com/AR3ON/mnesia_ex/blob/main/examples/07_transactions.exs)** - Composable transactions
+- **01_basic_crud.exs** - Write, read, update, delete, queries
+- **02_ttl.exs** - Automatic record expiration
+- **03_counters.exs** - Auto-increment IDs and distributed counters
+- **04_events.exs** - Real-time event subscriptions
+- **05_backup_export.exs** - Backup to JSON/CSV/Erlang
+- **06_complete_app.exs** - Full blog system demo
+- **07_transactions.exs** - Composable transactions
 
 Run any example with:
 ```bash
@@ -84,6 +84,9 @@ elixir examples/01_basic_crud.exs
 ```
 
 All examples use `Mix.install/1` - no setup required!
+
+> 📖 **Note**: Examples are included in the package and available in HexDocs.
+> View them in your editor or [browse on GitHub](https://github.com/AR3ON/mnesia_ex/tree/main/examples).
 
 ## Quick Start
 
