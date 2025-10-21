@@ -685,6 +685,9 @@ defmodule MnesiaEx do
       @doc "See `MnesiaEx.Table.transform!/3`"
       def transform!(new_attributes, transform_fun), do: Table.transform!(@table, new_attributes, transform_fun)
 
+      @doc "See `MnesiaEx.Table.get_counter_fields/1`"
+      def get_counter_fields, do: Table.get_counter_fields(@table)
+
       # TTL functions
       @doc "See `MnesiaEx.TTL.write!/3`"
       def write_with_ttl!(record, ttl), do: TTL.write!(@table, record, ttl)
@@ -812,6 +815,7 @@ defmodule MnesiaEx do
         remove_index: 1,
         remove_index!: 1,
         get_storage_type: 0,
+        get_counter_fields: 0,
         transform: 2,
         transform!: 2,
 

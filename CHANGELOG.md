@@ -5,6 +5,83 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2025-10-21
+
+### 🎯 Major Improvements to Counter System
+
+This release focuses on making counters more robust and preventing ID collisions.
+
+#### ✨ Added
+
+- **Counter Auto-Adjust**: Automatic counter adjustment when manual ID is higher than current counter value
+  - Prevents future collisions between manual and auto-generated IDs
+  - Seamless integration with existing code
+  - Works transparently in transactions
+
+- **Duplicate Prevention**: Validation against duplicate IDs for fields with counters
+  - Clear error messages: `{:id_already_exists, field, id}`
+  - Only applies to fields declared in `counter_fields`
+  - Tables without counters maintain original Mnesia behavior
+
+- **Schema-Based Validation**: Counter features only activate for configured fields
+  - Checks `:user_properties` in table schema
+  - Backward compatible with tables created before this version
+
+- **New API Function**: `get_counter_fields/1` for inspecting table counter configuration
+  - Returns list of fields with auto-increment enabled
+  - Available in `MnesiaEx.Table` and table modules
+  - Useful for dynamic validation and debugging
+  - Example: `MyApp.Posts.get_counter_fields()` → `[:id, :views]`
+
+#### 🔧 Changed
+
+- **Breaking**: `write()` with `counter_fields` now prevents ID overwrites
+  - Use `update()` to modify existing records
+  - Improves data safety and clarity
+  - Separation: `write` = insert, `update` = modify
+
+#### 📚 Documentation
+
+- Enhanced `examples/03_counters.exs` with comprehensive demonstrations
+  - Auto-generation examples (recommended pattern)
+  - Manual ID pattern (advanced use cases)
+  - Auto-adjust demonstrations
+  - Duplicate prevention examples
+  - Tables with/without counters comparison
+
+- Improved `README.md` with best practices for versioned documentation
+- Updated `examples/01_basic_crud.exs` and `examples/07_transactions.exs` corrections
+
+#### 🧪 Testing
+
+- Added comprehensive test suite for auto-adjust functionality
+- Added tests for duplicate prevention
+- Added tests for `get_counter_fields/1` function
+- All tests follow functional programming principles (no `Enum.map`, pure recursion)
+
+#### 🐛 Fixed
+
+- Counter validation now checks schema configuration, not just counter table existence
+- Removed redundant `*_in_transaction` functions (auto-detection works correctly)
+- Fixed example scripts to use correct API signatures
+
+### 🔄 Migration Guide
+
+If you're upgrading from 0.1.0:
+
+```elixir
+# Before (0.1.0): Could overwrite with same ID
+MyApp.Users.write(%{id: 1, name: "Updated"})
+
+# After (0.2.0): Use update for modifications
+MyApp.Users.update(1, %{name: "Updated"})
+
+# Auto-generation still works the same
+MyApp.Users.write(%{name: "Alice"})  # ✅ Same as before
+```
+
+Tables **without** `counter_fields` are not affected and work exactly as before.
+
 ## [0.1.0] - 2025-10-19
 
 ### 🎉 Initial Public Beta

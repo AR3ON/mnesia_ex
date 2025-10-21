@@ -12,7 +12,8 @@ defmodule MnesiaEx.TableTest do
       :storage_table, :any_table, :nonexistent_storage_table, :storage_test,
       :transform_table, :count_table, :spec_create, :spec_drop, :spec_clear,
       :spec_info, :spec_info_bang, :spec_index, :spec_rm_index, :spec_storage,
-      :spec_transform, :ram_table, :nonexistent_transform_table
+      :spec_transform, :ram_table, :nonexistent_transform_table,
+      :test_counter_fields, :test_no_counters, :test_multi_counters, :test_check_field
     ]
 
     # Limpiar agresivamente antes del test
@@ -767,9 +768,99 @@ defmodule MnesiaEx.TableTest do
   end
 
 
+  describe "get_counter_fields/1" do
+    test "returns counter fields for table with counters" do
+      {:ok, _} = Table.create(:test_counter_fields, [
+        attributes: [:id, :name, :views],
+        counter_fields: [:id, :views]
+      ])
+
+      counter_fields = Table.get_counter_fields(:test_counter_fields)
+
+      validate_list_contains(counter_fields, :id)
+      validate_list_contains(counter_fields, :views)
+      validate_list_does_not_contain(counter_fields, :name)
+      validate_list_length(counter_fields, 2)
+    end
+
+    test "returns empty list for table without counter fields" do
+      {:ok, _} = Table.create(:test_no_counters, [
+        attributes: [:id, :name]
+      ])
+
+      counter_fields = Table.get_counter_fields(:test_no_counters)
+
+      validate_list_length(counter_fields, 0)
+      validate_equals(counter_fields, [])
+    end
+
+    test "returns empty list for non-existent table" do
+      counter_fields = Table.get_counter_fields(:non_existent_table)
+
+      validate_equals(counter_fields, [])
+    end
+
+    test "works with multiple counter fields" do
+      {:ok, _} = Table.create(:test_multi_counters, [
+        attributes: [:id, :order_number, :invoice_number, :name],
+        counter_fields: [:id, :order_number, :invoice_number]
+      ])
+
+      counter_fields = Table.get_counter_fields(:test_multi_counters)
+
+      validate_list_length(counter_fields, 3)
+      validate_list_contains(counter_fields, :id)
+      validate_list_contains(counter_fields, :order_number)
+      validate_list_contains(counter_fields, :invoice_number)
+    end
+
+    test "can be used to check if field has counter" do
+      {:ok, _} = Table.create(:test_check_field, [
+        attributes: [:id, :name],
+        counter_fields: [:id]
+      ])
+
+      counter_fields = Table.get_counter_fields(:test_check_field)
+
+      has_id_counter = :id in counter_fields
+      has_name_counter = :name in counter_fields
+
+      validate_equals(has_id_counter, true)
+      validate_equals(has_name_counter, false)
+    end
+  end
+
   # Helper functions for new tests
   defp validate_is_atom(value) when is_atom(value), do: :ok
   defp validate_is_atom(value), do: raise("Expected atom but got #{inspect(value)}")
+
+  defp validate_list_contains(list, item) when is_list(list) do
+    check_list_membership(list, item)
+  end
+
+  defp check_list_membership([], item) do
+    raise "Expected list to contain #{inspect(item)} but it was not found"
+  end
+
+  defp check_list_membership([item | _rest], item), do: :ok
+
+  defp check_list_membership([_other | rest], item) do
+    check_list_membership(rest, item)
+  end
+
+  defp validate_list_does_not_contain(list, item) when is_list(list) do
+    check_list_non_membership(list, item)
+  end
+
+  defp check_list_non_membership([], _item), do: :ok
+
+  defp check_list_non_membership([item | _rest], item) do
+    raise "Expected list NOT to contain #{inspect(item)} but it was found"
+  end
+
+  defp check_list_non_membership([_other | rest], item) do
+    check_list_non_membership(rest, item)
+  end
 
   defp validate_storage_type_valid(type) when type in [:disc_copies, :ram_copies, :disc_only_copies, :unknown], do: :ok
   defp validate_storage_type_valid(type), do: raise("Invalid storage type: #{inspect(type)}")

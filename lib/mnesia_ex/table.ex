@@ -268,6 +268,80 @@ defmodule MnesiaEx.Table do
   end
 
   @doc """
+  Gets the counter fields configured for a table.
+
+  Returns a list of field names that have auto-increment counters enabled.
+  This reads from the table's `:user_properties` metadata stored in Mnesia.
+
+  ## Returns
+
+    - List of atoms representing fields with counters
+    - Empty list `[]` if no counter fields are configured
+
+  ## Examples
+
+      # Table with counter fields
+      iex> MnesiaEx.Table.create(:posts, [
+      ...>   attributes: [:id, :title, :views],
+      ...>   counter_fields: [:id, :views]
+      ...> ])
+      iex> MnesiaEx.Table.get_counter_fields(:posts)
+      [:id, :views]
+
+      # Table without counter fields
+      iex> MnesiaEx.Table.create(:sessions, [
+      ...>   attributes: [:id, :token]
+      ...> ])
+      iex> MnesiaEx.Table.get_counter_fields(:sessions)
+      []
+
+      # Check specific field
+      iex> :id in MnesiaEx.Table.get_counter_fields(:posts)
+      true
+
+  ## How It Works
+
+  When you create a table with `counter_fields: [:id]`, MnesiaEx stores this
+  metadata in Mnesia's `:user_properties`:
+
+      {:user_properties, [{:field_type, :id, :autoincrement}]}
+
+  This function reads that metadata and extracts the field names.
+  """
+  @spec get_counter_fields(atom()) :: [atom()]
+  def get_counter_fields(table) when is_atom(table) do
+    fetch_counter_fields_from_table(table)
+  end
+
+  defp fetch_counter_fields_from_table(table) do
+    table_exists?(table)
+    |> read_user_properties_if_exists(table)
+    |> extract_counter_field_names()
+  end
+
+  defp read_user_properties_if_exists(true, table) do
+    :mnesia.table_info(table, :user_properties)
+  end
+
+  defp read_user_properties_if_exists(false, _table), do: []
+
+  defp extract_counter_field_names(properties) when is_list(properties) do
+    extract_autoincrement_field_names(properties, [])
+  end
+
+  defp extract_counter_field_names(_), do: []
+
+  defp extract_autoincrement_field_names([], acc), do: Enum.reverse(acc)
+
+  defp extract_autoincrement_field_names([{:field_type, field, :autoincrement} | rest], acc) do
+    extract_autoincrement_field_names(rest, [field | acc])
+  end
+
+  defp extract_autoincrement_field_names([_other | rest], acc) do
+    extract_autoincrement_field_names(rest, acc)
+  end
+
+  @doc """
   Copies a table to another node.
 
   ## Examples

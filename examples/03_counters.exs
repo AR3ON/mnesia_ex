@@ -148,6 +148,24 @@ IO.puts("Has ID counter? #{has_id_counter}")
 IO.puts("Has views counter? #{has_views_counter}")
 IO.puts("Has fake counter? #{has_fake_counter}")
 
+IO.puts("\n=== Get Counter Fields (NEW) ===\n")
+
+# Get all counter fields configured for the table
+counter_fields = MyApp.Posts.get_counter_fields()
+IO.puts("Counter fields configured: #{inspect(counter_fields)}")
+
+# Check specific field
+IO.puts("Is :id a counter field? #{:id in counter_fields}")
+IO.puts("Is :title a counter field? #{:title in counter_fields}")
+
+# Useful for dynamic validation
+IO.puts("\n💡 Use case: Dynamic validation")
+IO.puts("   if :id in MyApp.Posts.get_counter_fields() do")
+IO.puts("     # Auto-generation available")
+IO.puts("   else")
+IO.puts("     # Must provide ID manually")
+IO.puts("   end")
+
 # NEW: Auto-Generation and Counter Auto-Adjust
 IO.puts("\n=== 🎯 Auto-Generation & Counter Auto-Adjust ===\n")
 
